@@ -10,13 +10,16 @@ def add_ohlc(df: pd.DataFrame, begin=date(2022, 4, 18), end=date(2022, 4, 22), f
     "Returns a pandas dataframe with the OHLC + total volume columns"
     if df is None:
         return None
-    df['TradeDateTime'] = pd.DatetimeIndex(df['TradeDateTime'].values)
-    df['High'] = df.groupby(df['TradeDateTime'].dt.date).Price.transform('max')
-    df['Low'] = df.groupby(df['TradeDateTime'].dt.date).Price.transform('min')
-    df['Open'] = df.groupby(df['TradeDateTime'].dt.date).Price.transform('first')
-    df['Close'] = df.groupby(df['TradeDateTime'].dt.date).Price.transform('last')
-    df['Total Volume'] = df.groupby(df['TradeDateTime'].dt.date).Quantity.transform('sum')
-    df = df.resample(freq, on='TradeDateTime').mean()
+    df.set_index(pd.DatetimeIndex(df['TradeDateTime'].values), inplace=True)
+    df.pop('TradeDateTime')
+    #print("df: ", df)
+    df['High'] = df.groupby(pd.Grouper(freq=freq)).Price.transform('max')
+    df['Low'] = df.groupby(pd.Grouper(freq=freq)).Price.transform('min')
+    df['Open'] = df.groupby(pd.Grouper(freq=freq)).Price.transform('first')
+    df['Close'] = df.groupby(pd.Grouper(freq=freq)).Price.transform('last')
+    df['Total Volume'] = df.groupby(pd.Grouper(freq=freq)).Quantity.transform('sum')
+    #df.to_csv('df_before_resampling.csv')
+    df = df.resample(freq).mean()
     df = df[(df.index.date >= begin) & (df.index.date <= end)]
     # Be sensible about this, the following WILL fail if you give it something weird
     hours = freq_string_to_hours(freq)
@@ -49,6 +52,7 @@ def create_dataframe(freq='1D', begin=date(2022, 4, 18), end=date(2022, 4, 22), 
     return tuple(all_contracts)
 
 df_emission_DA = create_dataframe()[0]
+df_emission_DA.to_csv("emissions_DA.csv")
 fig = go.Figure(data=[go.Candlestick(x=df_emission_DA.index,
                     open=df_emission_DA['Open'],
                     high=df_emission_DA['High'],
